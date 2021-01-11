@@ -31,7 +31,7 @@ nb_path: "5_lambda_function.ipynb"
 
 <div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Lamnda-to-Stream">Lamnda to Stream<a class="anchor-link" href="#Lamnda-to-Stream"> </a></h2>
+<h2 id="Lambda-to-Stream">Lambda to Stream<a class="anchor-link" href="#Lambda-to-Stream"> </a></h2>
 </div>
 </div>
 </div>
@@ -135,6 +135,207 @@ nb_path: "5_lambda_function.ipynb"
     <span class="n">full_cw_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cw_url</span><span class="si">}</span><span class="s1">/log-events/</span><span class="si">{</span><span class="n">latest_stream</span><span class="si">}</span><span class="s1">$3FfilterPattern$3DPrediction+</span><span class="si">{</span><span class="n">time_filter</span><span class="si">}</span><span class="s1">&#39;</span>
     <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Updated log stream is ready.&#39;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">full_cw_url</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    {% endraw %}
+
+<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Lamnda-to-Endpoint">Lamnda to Endpoint<a class="anchor-link" href="#Lamnda-to-Endpoint"> </a></h2>
+</div>
+</div>
+</div>
+    {% raw %}
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+
+
+<span class="c1"># Read environment variables</span>
+<span class="n">ENDPOINT_NAME</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;ENDPOINT_NAME&#39;</span><span class="p">]</span>
+<span class="n">FEATURE_GROUP</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;FEATURE_GROUP_NAME&#39;</span><span class="p">]</span>
+<span class="n">FRAUD_THRESHOLD</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;FRAUD_THRESHOLD&#39;</span><span class="p">]</span>
+<span class="n">LOG_LEVEL</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;LOG_LEVEL&#39;</span><span class="p">]</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span>
+<span class="k">if</span> <span class="n">logging</span><span class="o">.</span><span class="n">_checkLevel</span><span class="p">(</span><span class="n">LOG_LEVEL</span><span class="p">):</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">LOG_LEVEL</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+<span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Setting Logger Level to </span><span class="si">{</span><span class="n">logging</span><span class="o">.</span><span class="n">getLevelName</span><span class="p">(</span><span class="n">logger</span><span class="o">.</span><span class="n">level</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+<span class="kn">import</span> <span class="nn">boto3</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;boto3 version: </span><span class="si">{</span><span class="n">boto3</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+<span class="c1"># Create session via Boto3</span>
+<span class="n">session</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">featurestore_runtime</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="n">service_name</span><span class="o">=</span><span class="s1">&#39;sagemaker-featurestore-runtime&#39;</span><span class="p">)</span>
+<span class="k">except</span><span class="p">:</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Failed to instantiate featurestore-runtime client with install.sh script!&#39;</span><span class="p">)</span>
+
+<span class="c1"># Allocate SageMaker runtime</span>
+<span class="n">sagemaker_runtime</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s1">&#39;runtime.sagemaker&#39;</span><span class="p">)</span>
+
+<span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Lambda will call SageMaker ENDPOINT name: </span><span class="si">{</span><span class="n">ENDPOINT_NAME</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; This handler is triggered by incoming Kinesis events,</span>
+<span class="sd">    which contain a payload encapsulating the transaction data.</span>
+<span class="sd">    The Lambda will then lookup corresponding records in the</span>
+<span class="sd">    aggregate feature groups, assemble a payload for inference,</span>
+<span class="sd">    and call the inference endpoint to generate a prediction.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Received event: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)))</span>
+
+    <span class="n">records</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="s1">&#39;Records&#39;</span><span class="p">]</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Event contains </span><span class="si">{}</span><span class="s1"> records&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">records</span><span class="p">)))</span>
+    
+    <span class="n">ret_records</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>
+        <span class="c1"># Each record has separate eventID, etc.</span>
+        <span class="n">event_id</span> <span class="o">=</span> <span class="n">rec</span><span class="p">[</span><span class="s1">&#39;eventID&#39;</span><span class="p">]</span>
+        <span class="n">event_source_arn</span> <span class="o">=</span> <span class="n">rec</span><span class="p">[</span><span class="s1">&#39;eventSourceARN&#39;</span><span class="p">]</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;eventID: </span><span class="si">{</span><span class="n">event_id</span><span class="si">}</span><span class="s1">, eventSourceARN: </span><span class="si">{</span><span class="n">event_source_arn</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="n">kinesis</span> <span class="o">=</span> <span class="n">rec</span><span class="p">[</span><span class="s1">&#39;kinesis&#39;</span><span class="p">]</span>
+        <span class="n">event_payload</span> <span class="o">=</span> <span class="n">decode_payload</span><span class="p">(</span><span class="n">kinesis</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">])</span>
+
+
+        <span class="n">feature_string</span> <span class="o">=</span> <span class="n">assemble_features</span><span class="p">(</span><span class="n">event_payload</span><span class="p">)</span>
+        <span class="n">prediction</span> <span class="o">=</span> <span class="n">invoke_endpoint</span><span class="p">(</span><span class="n">feature_string</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">prediction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sequence_num</span> <span class="o">=</span> <span class="n">kinesis</span><span class="p">[</span><span class="s1">&#39;sequenceNumber&#39;</span><span class="p">]</span>
+            <span class="n">ret_records</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;eventId&#39;</span><span class="p">:</span> <span class="n">event_id</span><span class="p">,</span>
+                            <span class="s1">&#39;sequenceNumber&#39;</span><span class="p">:</span> <span class="n">sequence_num</span><span class="p">,</span>
+                            <span class="s1">&#39;prediction&#39;</span><span class="p">:</span> <span class="n">prediction</span><span class="p">,</span>
+                            <span class="s1">&#39;statusCode&#39;</span><span class="p">:</span> <span class="mi">200</span><span class="p">})</span>
+
+    <span class="k">return</span> <span class="n">ret_records</span>
+                       
+<span class="k">def</span> <span class="nf">assemble_features</span><span class="p">(</span> <span class="n">event_payload</span> <span class="p">):</span>
+    <span class="n">inference_features</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">features</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">features</span><span class="p">:</span>
+        <span class="n">inference_features</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">event_payload</span><span class="p">[</span><span class="n">feature</span><span class="p">]))</span>
+
+    <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Inference features: </span><span class="si">{</span><span class="n">inference_features</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="c1"># assemble features into CSV-format string</span>
+    <span class="n">feature_string</span> <span class="o">=</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">inference_features</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">feature_string</span>
+
+
+<span class="k">def</span> <span class="nf">invoke_endpoint</span><span class="p">(</span><span class="n">request_body</span><span class="p">):</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;Passing Request Body (CSV-format): </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">request_body</span><span class="p">))</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="n">sagemaker_runtime</span><span class="o">.</span><span class="n">invoke_endpoint</span><span class="p">(</span>
+        <span class="n">EndpointName</span><span class="o">=</span><span class="n">ENDPOINT_NAME</span><span class="p">,</span>
+        <span class="n">ContentType</span><span class="o">=</span><span class="s1">&#39;text/csv&#39;</span><span class="p">,</span>
+        <span class="n">Body</span><span class="o">=</span><span class="n">request_body</span><span class="p">)</span>        
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Inference Response: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">response</span><span class="p">))</span>
+
+    <span class="n">probability</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">response</span><span class="p">[</span><span class="s1">&#39;Body&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">probability</span>
+
+
+<span class="k">def</span> <span class="nf">decode_payload</span><span class="p">(</span><span class="n">event_data</span><span class="p">):</span>
+    <span class="n">agg_data_bytes</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">event_data</span><span class="p">)</span>
+    <span class="n">decoded_data</span> <span class="o">=</span> <span class="n">agg_data_bytes</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> 
+    <span class="n">event_payload</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">decoded_data</span><span class="p">)</span> 
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Decoded data from kinesis record: </span><span class="si">{</span><span class="n">event_payload</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">event_payload</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    {% endraw %}
+
+<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Lamnda-to-FeatureStore">Lamnda to FeatureStore<a class="anchor-link" href="#Lamnda-to-FeatureStore"> </a></h2>
+</div>
+</div>
+</div>
+    {% raw %}
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">base64</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="kn">import</span> <span class="nn">boto3</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;boto3 version: </span><span class="si">{</span><span class="n">boto3</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">sm</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="n">service_name</span><span class="o">=</span><span class="s1">&#39;sagemaker&#39;</span><span class="p">)</span>
+    <span class="n">sm_fs</span> <span class="o">=</span> <span class="n">boto3</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="n">service_name</span><span class="o">=</span><span class="s1">&#39;sagemaker-featurestore-runtime&#39;</span><span class="p">)</span>
+<span class="k">except</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Failed while connecting to SageMaker Feature Store&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Unexpected error: </span><span class="si">{</span><span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+
+<span class="c1"># Read Environment Vars</span>
+<span class="n">FEATURE_GROUP</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;FEATURE_GROUP_NAME&#39;</span><span class="p">]</span>
+
+<span class="n">features</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;kst_brutto&#39;</span><span class="p">,</span> <span class="s1">&#39;sm&#39;</span><span class="p">,</span> <span class="s1">&#39;tm&#39;</span><span class="p">,</span> <span class="s1">&#39;cl&#39;</span><span class="p">,</span> <span class="s1">&#39;so3&#39;</span><span class="p">,</span> <span class="s1">&#39;k2o&#39;</span><span class="p">,</span> <span class="s1">&#39;na2o&#39;</span><span class="p">,</span> <span class="s1">&#39;south_kiln_feed_01om886__tph__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;south_kiln_feed_01om886__tph__max&#39;</span><span class="p">,</span> <span class="s1">&#39;north_kiln_feed_01om885__tph__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;north_kiln_feed_01om885__tph__max&#39;</span><span class="p">,</span> <span class="s1">&#39;north_fan_speed_01oa943__rpm__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;north_fan_speed_01oa943__rpm__max&#39;</span><span class="p">,</span> <span class="s1">&#39;south_fan_speed_02oa943__rpm__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;south_fan_speed_02oa943__rpm__max&#39;</span><span class="p">,</span> <span class="s1">&#39;lignite_main_burner_03sk820__tph__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;lignite_main_burner_03sk820__tph__max&#39;</span><span class="p">,</span> <span class="s1">&#39;bpg_main_burner_03bf810__tph__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;bpg_main_burner_03bf810__tph__max&#39;</span><span class="p">,</span> <span class="s1">&#39;lignite_calciner_02sk820__tph__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;lignite_calciner_02sk820__tph__max&#39;</span><span class="p">,</span> <span class="s1">&#39;bpg_calciner_02bf810__tph__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;bpg_calciner_02bf810__tph__max&#39;</span><span class="p">,</span> <span class="s1">&#39;kbs_calciner_00kb950__tph__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;kbs_calciner_00kb950__tph__max&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_main_burner__gj_h__avg_0&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_main_burner__gj_h__max_0&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_main_burner__gj_h__avg_1&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_main_burner__gj_h__max_1&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_main_burner__gj_h__avg_2&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_main_burner__gj_h__max_2&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_main_burner__gj_h__avg_3&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_main_burner__gj_h__max_3&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_calciner__gj_h__avg_0&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_calciner__gj_h__max_0&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_calciner__gj_h__avg_1&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_calciner__gj_h__max_1&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_calciner__gj_h__avg_2&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_calciner__gj_h__max_2&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_calciner__gj_h__avg_3&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_to_calciner__gj_h__max_3&#39;</span><span class="p">,</span> <span class="s1">&#39;tf__traditional_fuel__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;tf__traditional_fuel__max&#39;</span><span class="p">,</span> <span class="s1">&#39;af__alternative_fuel__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;af__alternative_fuel__max&#39;</span><span class="p">,</span> <span class="s1">&#39;shc__gj__t_kiln_feed__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;shc__gj__t_kiln_feed__max&#39;</span><span class="p">,</span> <span class="s1">&#39;nox_concentration_in_kiln_inlet_00oa983__ppm__avg_0&#39;</span><span class="p">,</span> <span class="s1">&#39;nox_concentration_in_kiln_inlet_00oa983__ppm__max_0&#39;</span><span class="p">,</span> <span class="s1">&#39;nox_concentration_in_kiln_inlet_00oa983__ppm__avg_1&#39;</span><span class="p">,</span> <span class="s1">&#39;nox_concentration_in_kiln_inlet_00oa983__ppm__max_1&#39;</span><span class="p">,</span> <span class="s1">&#39;nox_concentration_in_kiln_inlet_00oa983__ppm__avg_2&#39;</span><span class="p">,</span> <span class="s1">&#39;nox_concentration_in_kiln_inlet_00oa983__ppm__max_2&#39;</span><span class="p">,</span> <span class="s1">&#39;nox_concentration_in_kiln_inlet_00oa983__ppm__avg_3&#39;</span><span class="p">,</span> <span class="s1">&#39;nox_concentration_in_kiln_inlet_00oa983__ppm__max_3&#39;</span><span class="p">,</span> <span class="s1">&#39;co_concentration_in_kiln_inlet_00oa981__ppm__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;co_concentration_in_kiln_inlet_00oa981__ppm__max&#39;</span><span class="p">,</span> <span class="s1">&#39;o2_concentration_in_kiln_inlet_00oa982_____avg&#39;</span><span class="p">,</span> <span class="s1">&#39;o2_concentration_in_kiln_inlet_00oa982_____max&#39;</span><span class="p">,</span> <span class="s1">&#39;bottom_cyclone_gas_temperature_00oa800___c___avg&#39;</span><span class="p">,</span> <span class="s1">&#39;bottom_cyclone_gas_temperature_00oa800___c___max&#39;</span><span class="p">,</span> <span class="s1">&#39;secondary_air_temperature_01kk827___c___avg_0&#39;</span><span class="p">,</span> <span class="s1">&#39;secondary_air_temperature_01kk827___c___max_0&#39;</span><span class="p">,</span> <span class="s1">&#39;secondary_air_temperature_01kk827___c___avg_1&#39;</span><span class="p">,</span> <span class="s1">&#39;secondary_air_temperature_01kk827___c___max_1&#39;</span><span class="p">,</span> <span class="s1">&#39;secondary_air_temperature_01kk827___c___avg_2&#39;</span><span class="p">,</span> <span class="s1">&#39;secondary_air_temperature_01kk827___c___max_2&#39;</span><span class="p">,</span> <span class="s1">&#39;secondary_air_temperature_01kk827___c___avg_3&#39;</span><span class="p">,</span> <span class="s1">&#39;secondary_air_temperature_01kk827___c___max_3&#39;</span><span class="p">,</span> <span class="s1">&#39;tertiary_air_temperature_01kb801___c___avg_0&#39;</span><span class="p">,</span> <span class="s1">&#39;tertiary_air_temperature_01kb801___c___max_0&#39;</span><span class="p">,</span> <span class="s1">&#39;tertiary_air_temperature_01kb801___c___avg_1&#39;</span><span class="p">,</span> <span class="s1">&#39;tertiary_air_temperature_01kb801___c___max_1&#39;</span><span class="p">,</span> <span class="s1">&#39;tertiary_air_temperature_01kb801___c___avg_2&#39;</span><span class="p">,</span> <span class="s1">&#39;tertiary_air_temperature_01kb801___c___max_2&#39;</span><span class="p">,</span> <span class="s1">&#39;tertiary_air_temperature_01kb801___c___avg_3&#39;</span><span class="p">,</span> <span class="s1">&#39;tertiary_air_temperature_01kb801___c___max_3&#39;</span><span class="p">,</span> <span class="s1">&#39;kiln_amps_01do812__amps__avg_0&#39;</span><span class="p">,</span> <span class="s1">&#39;kiln_amps_01do812__amps__max_0&#39;</span><span class="p">,</span> <span class="s1">&#39;kiln_amps_01do812__amps__avg_1&#39;</span><span class="p">,</span> <span class="s1">&#39;kiln_amps_01do812__amps__max_1&#39;</span><span class="p">,</span> <span class="s1">&#39;kiln_amps_01do812__amps__avg_2&#39;</span><span class="p">,</span> <span class="s1">&#39;kiln_amps_01do812__amps__max_2&#39;</span><span class="p">,</span> <span class="s1">&#39;kiln_amps_01do812__amps__avg_3&#39;</span><span class="p">,</span> <span class="s1">&#39;kiln_amps_01do812__amps__max_3&#39;</span><span class="p">,</span> <span class="s1">&#39;co_bottom_cyclone_north_00oa941__amps__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;co_bottom_cyclone_north_00oa941__amps__max&#39;</span><span class="p">,</span> <span class="s1">&#39;o2_bottom_cyclone_north_00oa942_____avg_0&#39;</span><span class="p">,</span> <span class="s1">&#39;o2_bottom_cyclone_north_00oa942_____max_0&#39;</span><span class="p">,</span> <span class="s1">&#39;o2_bottom_cyclone_north_00oa942_____avg_1&#39;</span><span class="p">,</span> <span class="s1">&#39;o2_bottom_cyclone_north_00oa942_____max_1&#39;</span><span class="p">,</span> <span class="s1">&#39;o2_bottom_cyclone_north_00oa942_____avg_2&#39;</span><span class="p">,</span> <span class="s1">&#39;o2_bottom_cyclone_north_00oa942_____max_2&#39;</span><span class="p">,</span> <span class="s1">&#39;o2_bottom_cyclone_north_00oa942_____avg_3&#39;</span><span class="p">,</span> <span class="s1">&#39;o2_bottom_cyclone_north_00oa942_____max_3&#39;</span><span class="p">,</span> <span class="s1">&#39;kiln_speed_01do811__rpm__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;kiln_speed_01do811__rpm__max&#39;</span><span class="p">,</span> <span class="s1">&#39;primary_air_amount_01of850__nm3_h___avg&#39;</span><span class="p">,</span> <span class="s1">&#39;primary_air_amount_01of850__nm3_h___max&#39;</span><span class="p">,</span> <span class="s1">&#39;axial_air_pressure_01of811__mbar__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;axial_air_pressure_01of811__mbar__max&#39;</span><span class="p">,</span> <span class="s1">&#39;radial_air_pressure_01of812__mbar__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;radial_air_pressure_01of812__mbar__max&#39;</span><span class="p">,</span> <span class="s1">&#39;central_air_pressure_01of813__mbar__avg&#39;</span><span class="p">,</span> <span class="s1">&#39;central_air_pressure_01of813__mbar__max&#39;</span><span class="p">,</span> <span class="s1">&#39;total_feed_avg&#39;</span><span class="p">,</span> <span class="s1">&#39;total_feed_max&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_avg&#39;</span><span class="p">,</span> <span class="s1">&#39;total_energy_max&#39;</span><span class="p">,</span> <span class="s1">&#39;average_fan_speed_avg&#39;</span><span class="p">,</span> <span class="s1">&#39;average_fan_speed_max&#39;</span><span class="p">,</span> <span class="s1">&#39;average_air_temperature_avg&#39;</span><span class="p">,</span> <span class="s1">&#39;average_air_temperature_max&#39;</span><span class="p">,</span> <span class="s1">&#39;kiln_feed_rate_avg&#39;</span><span class="p">,</span> <span class="s1">&#39;kiln_feed_rate_max&#39;</span><span class="p">,</span> <span class="s1">&#39;klinker___nk_c3s_lag_shift&#39;</span><span class="p">,</span> <span class="s1">&#39;klinker___nk_mgo_lag_shift&#39;</span><span class="p">,</span> <span class="s1">&#39;klinker___nk_fe2o3_lag_shift&#39;</span><span class="p">,</span> <span class="s1">&#39;klinker___nk_al2o3_lag_shift&#39;</span><span class="p">,</span> <span class="s1">&#39;klinker___nk_na2o_lag_shift&#39;</span><span class="p">,</span> <span class="s1">&#39;klinker___nk_k2o_lag_shift&#39;</span><span class="p">,</span> <span class="s1">&#39;klinker___nk_cao_lag_shift&#39;</span><span class="p">,</span> <span class="s1">&#39;klinker___nk_sio2_lag_shift&#39;</span><span class="p">,</span> <span class="s1">&#39;heat_of_formation__kcal_kg_clinker__lag_shift&#39;</span><span class="p">,</span> <span class="s1">&#39;klinker___nk_so3_lag_shift&#39;</span><span class="p">,</span> <span class="s1">&#39;klinker___nk_sm_lag_shift&#39;</span><span class="p">,</span> <span class="s1">&#39;klinker___nk_am_lag_shift&#39;</span><span class="p">,</span> <span class="s1">&#39;klinker___nk_lsf_lag_shift&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">update_agg</span><span class="p">(</span><span class="n">fg_name</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+    <span class="n">record</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="n">features</span><span class="p">:</span>
+        <span class="n">temp</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;FeatureName&#39;</span><span class="p">:</span> <span class="n">feature</span><span class="p">,</span> <span class="s1">&#39;ValueAsString&#39;</span> <span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">feature</span><span class="p">])}</span>
+        <span class="n">record</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+    <span class="n">sm_fs</span><span class="o">.</span><span class="n">put_record</span><span class="p">(</span><span class="n">FeatureGroupName</span><span class="o">=</span><span class="n">fg_name</span><span class="p">,</span> <span class="n">Record</span><span class="o">=</span><span class="n">record</span><span class="p">)</span>
+    <span class="k">return</span>
+        
+<span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="n">inv_id</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="s1">&#39;invocationId&#39;</span><span class="p">]</span>
+    <span class="n">app_arn</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="s1">&#39;applicationArn&#39;</span><span class="p">]</span>
+    <span class="n">records</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="s1">&#39;records&#39;</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Received </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">records</span><span class="p">)</span><span class="si">}</span><span class="s1"> records, invocation id: </span><span class="si">{</span><span class="n">inv_id</span><span class="si">}</span><span class="s1">, app arn: </span><span class="si">{</span><span class="n">app_arn</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    
+    <span class="n">ret_records</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>
+        <span class="n">raw_data</span> <span class="o">=</span> <span class="n">rec</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+        <span class="n">data_str</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">raw_data</span><span class="p">)</span> 
+        <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">data_str</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39; updating features for id: </span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">update_agg</span><span class="p">(</span><span class="n">FEATURE_GROUP</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        
+        <span class="c1"># Flag each record as being &quot;Ok&quot;, so that Kinesis won&#39;t try to re-send </span>
+        <span class="n">ret_records</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;recordId&#39;</span><span class="p">:</span> <span class="n">rec</span><span class="p">[</span><span class="s1">&#39;recordId&#39;</span><span class="p">],</span>
+                            <span class="s1">&#39;result&#39;</span><span class="p">:</span> <span class="s1">&#39;Ok&#39;</span><span class="p">})</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;records&#39;</span><span class="p">:</span> <span class="n">ret_records</span><span class="p">}</span>
 </pre></div>
 
     </div>

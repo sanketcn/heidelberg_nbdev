@@ -1,13 +1,13 @@
 ---
 
-title: Project name here
+title: Heidelberg-Cement-Project
 
 
 keywords: fastai
 sidebar: home_sidebar
 
-summary: "Summary description here."
-description: "Summary description here."
+
+
 nb_path: "index.ipynb"
 ---
 <!--
@@ -31,70 +31,56 @@ nb_path: "index.ipynb"
 
 <div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p>This file will become your README and also the index of your documentation.</p>
-
+<h3 id="Overview">Overview<a class="anchor-link" href="#Overview"> </a></h3><p>In this repository, we provide artifacts that demonstrate how to leverage the Amazon SageMaker Feature Store using streaming feature aggregation.
+We use Amazon SageMaker to train a model (using the built-in XGBoost algorithm) with aggregate features. 
+We use streaming aggregation with Amazon Kinesis and Amazon Kinesis Data Analytics (KDA) SQL, publishing features in near real time to the feature store.
+Finally, we pull the latest aggregate feature values from the feature store at inference time, passing them as input to our model hosted in an Amazon SageMaker endpoint.</p>
+<p>Amazon SageMaker Feature Store is a purpose-built repository where you can store and access features so it’s much easier to name, organize, and reuse them across teams. 
+SageMaker Feature Store provides a unified store for features during training and real-time inference without the need to write additional code or create manual processes to keep features consistent.</p>
+<h3 id="This-implementation-shows-you-how-to-do-the-following:">This implementation shows you how to do the following:<a class="anchor-link" href="#This-implementation-shows-you-how-to-do-the-following:"> </a></h3><ol>
+<li>Create multiple SageMaker Feature Groups to store aggregate data from a dataset.</li>
+<li>Train a SageMaker XGBoost model and deploy it as an endpoint for real time inference.</li>
+<li>Generate simulated data sending them to Amazon Kinesis.</li>
+<li>Use KDA SQL to aggregate features in near real time, triggering a Lambda function to update feature values in an feature group.</li>
+<li>Trigger a Lambda function to invoke the SageMaker endpoint and detect fraudulent transactions.</li>
+<li>There is one more lambda function which is conneced to s3bucket when anything is uploaded to s3bucket this lambda function will trigger and the data which is added to s3 will be put in stream and then the same procedure is going to follow.</li>
+</ol>
+<h3 id="Prerequisites">Prerequisites<a class="anchor-link" href="#Prerequisites"> </a></h3><p>Prior to running the steps under Instructions, you will need access to an AWS Account where you have full Admin privileges. The CloudFormation template will deploy multiple AWS Lambda functions, IAM Roles, and a new SageMaker notebook instance with this repo already cloned. In addition, having basic knowledge of the following services will be valuable: Amazon Kinesis streams, Amazon Kinesis Data Analytics, Amazon SageMaker, AWS Lambda functions, Amazon IAM Roles.</p>
+<h3 id="Instructions">Instructions<a class="anchor-link" href="#Instructions"> </a></h3><p>First you will login to your AWS account with an Admin user or role. This will allow the successful launch of the CloudFormation stack template. You can deploy the stack and explore our example by following these steps:</p>
+<ol>
+<li>AWS CloudFormation stack is formed in us-east-1</li>
+<li>View the Kinesis Stream that is used to ingest records.</li>
+<li>View the Kinesis Data Analytics SQL query that pulls data from the stream.</li>
+<li>View the Lambda function that receives the initial kinesis events and writes to the FeatureStore.</li>
+<li>View the Lambda function that receives the final kinesis events and triggers the model prediction.</li>
+<li>View the Lambda function that receives the new data which is updating in s3</li>
+</ol>
+<p>To use these notebooks from SageMaker Studio,Use "sanket-heidelberg" studio only beacuse the stack formed should match the IAM Role(Sagemaker role)</p>
+<p>Running the Notebooks</p>
+<p>There are a series of notebooks which should be run in order. Follow the step-by-step guide in each notebook:</p>
+<ol>
+<li>0_data_prepare.ipynb -&gt; Prepare your data and apply all the transformation here.</li>
+<li>1_setup.ipynb -&gt; create feature groups and Kinesis resources ,  igest one-week aggregate features, and create training dataset , train and deploy fraud detection model</li>
+<li>2_inference.ipynb -&gt; make predictions on streaming transactions</li>
+<li>3_cleanup.ipynb -&gt; clean up resources</li>
+<li>4_what_if_tool.ipynb -&gt; what if tool analysis(currently not working)</li>
+</ol>
+<h2 id="DEPLOY-LINKS">DEPLOY LINKS<a class="anchor-link" href="#DEPLOY-LINKS"> </a></h2><h3 id="Lambda-functions">Lambda functions<a class="anchor-link" href="#Lambda-functions"> </a></h3><ol>
+<li>InvokeFraudEndpoint (<a href="https://console.aws.amazon.com/lambda/home?region=us-east-1#/functions/HeidelbergInvokeFraudEndpointLambda3?tab=configuration">https://console.aws.amazon.com/lambda/home?region=us-east-1#/functions/HeidelbergInvokeFraudEndpointLambda3?tab=configuration</a>)</li>
+<li>StreamingInjectAggregateFeature( <a href="https://console.aws.amazon.com/lambda/home?region=us-east-1#/functions/HeidelbergStreamingIngestAggFeatures3?tab=configuration">https://console.aws.amazon.com/lambda/home?region=us-east-1#/functions/HeidelbergStreamingIngestAggFeatures3?tab=configuration</a>)</li>
+<li>Lambdatoputincomingdata ( <a href="https://console.aws.amazon.com/lambda/home?region=us-east-1#/functions/lambda_mlops?tab=configuration">https://console.aws.amazon.com/lambda/home?region=us-east-1#/functions/lambda_mlops?tab=configuration</a>)</li>
+</ol>
+<h3 id="Template-(CLoudFormation-Stack)">Template (CLoudFormation Stack)<a class="anchor-link" href="#Template-(CLoudFormation-Stack)"> </a></h3><p><a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/template?filteringText=&amp;filteringStatus=active&amp;viewNested=true&amp;hideStacks=false&amp;stackId=arn%3Aaws%3Acloudformation%3Aus-east-1%3A082830052325%3Astack%2Fheidelberg-mlops-stack-3%2Ffc283870-49d8-11eb-b6cb-0ea6aa6eaed9">https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/template?filteringText=&amp;filteringStatus=active&amp;viewNested=true&amp;hideStacks=false&amp;stackId=arn%3Aaws%3Acloudformation%3Aus-east-1%3A082830052325%3Astack%2Fheidelberg-mlops-stack-3%2Ffc283870-49d8-11eb-b6cb-0ea6aa6eaed9</a></p>
+<h3 id="LogStream-(CloudWatch)">LogStream (CloudWatch)<a class="anchor-link" href="#LogStream-(CloudWatch)"> </a></h3><h4 id="ENd-point-logstream,">ENd point logstream,<a class="anchor-link" href="#ENd-point-logstream,"> </a></h4><p><a href="https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252FHeidelbergInvokeFraudEndpointLambda3">https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252FHeidelbergInvokeFraudEndpointLambda3</a></p>
+<h4 id="Update-FeatureStore-Logstream">Update FeatureStore Logstream<a class="anchor-link" href="#Update-FeatureStore-Logstream"> </a></h4><p><a href="https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252FHeidelbergStreamingIngestAggFeatures3">https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252FHeidelbergStreamingIngestAggFeatures3</a></p>
+<h4 id="Streaming-lambda">Streaming lambda<a class="anchor-link" href="#Streaming-lambda"> </a></h4><p><a href="https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252Flambda_mlops">https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/$252Faws$252Flambda$252Flambda_mlops</a></p>
+<h3 id="KDA-Application">KDA Application<a class="anchor-link" href="#KDA-Application"> </a></h3><p><a href="https://console.aws.amazon.com/kinesisanalytics/home?region=us-east-1#/wizard/hub?applicationName=heidelberg-mlops-app">https://console.aws.amazon.com/kinesisanalytics/home?region=us-east-1#/wizard/hub?applicationName=heidelberg-mlops-app</a></p>
+<h3 id="Real-time-lambda-update-s3-bucket(anything-upload-on-thie-will-trigger-lambda-and-the-project-will-run)">Real time lambda update s3 bucket(anything upload on thie will trigger lambda and the project will run)<a class="anchor-link" href="#Real-time-lambda-update-s3-bucket(anything-upload-on-thie-will-trigger-lambda-and-the-project-will-run)"> </a></h3><p><a href="https://s3.console.aws.amazon.com/s3/buckets/lambda-trigger-mlops?region=us-east-1&amp;tab=objects">https://s3.console.aws.amazon.com/s3/buckets/lambda-trigger-mlops?region=us-east-1&amp;tab=objects</a></p>
+<h3 id="Transformed-Data-of-Heidelberg">Transformed Data of Heidelberg<a class="anchor-link" href="#Transformed-Data-of-Heidelberg"> </a></h3><p><a href="https://s3.console.aws.amazon.com/s3/buckets/sagemaker-us-east-1-082830052325?region=us-east-1&amp;prefix=heidelberg/data/&amp;showversions=false">https://s3.console.aws.amazon.com/s3/buckets/sagemaker-us-east-1-082830052325?region=us-east-1&amp;prefix=heidelberg/data/&amp;showversions=false</a></p>
+<h4 id="Anything-uploaded-on-this-s3-bucket-https://s3.console.aws.amazon.com/s3/buckets/lambda-trigger-mlops?region=us-east-1&amp;tab=objects-will-go-to-the-stream-and-will-also-trigger-invokelambda-and-also-ddata-will-go-to-KDA-for-freaturestore">Anything uploaded on this s3 bucket <a href="https://s3.console.aws.amazon.com/s3/buckets/lambda-trigger-mlops?region=us-east-1&amp;tab=objects">https://s3.console.aws.amazon.com/s3/buckets/lambda-trigger-mlops?region=us-east-1&amp;tab=objects</a> will go to the stream and will also trigger invokelambda and also ddata will go to KDA for freaturestore<a class="anchor-link" href="#Anything-uploaded-on-this-s3-bucket-https://s3.console.aws.amazon.com/s3/buckets/lambda-trigger-mlops?region=us-east-1&amp;tab=objects-will-go-to-the-stream-and-will-also-trigger-invokelambda-and-also-ddata-will-go-to-KDA-for-freaturestore"> </a></h4>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Install">Install<a class="anchor-link" href="#Install"> </a></h2>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p><code>pip install your_project_name</code></p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="How-to-use">How to use<a class="anchor-link" href="#How-to-use"> </a></h2>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>Fill me in please! Don't forget code examples:</p>
-
-</div>
-</div>
-</div>
-    {% raw %}
-    
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="mi">2</span><span class="o">+</span><span class="mi">0</span>
-</pre></div>
-
-    </div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-<div class="output_area">
-
-
-
-<div class="output_text output_subarea output_execute_result">
-<pre>2</pre>
-</div>
-
-</div>
-
-</div>
-</div>
-
-</div>
-    {% endraw %}
-
 </div>
  
 
