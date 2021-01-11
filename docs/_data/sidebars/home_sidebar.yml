@@ -10,11 +10,23 @@ entries:
       title: Overview
       url: /
     - output: web,pdf
-      title: module name here
-      url: core.html
+      title: Data Preparation
+      url: data_prepare.html
     - output: web,pdf
-      title: Title
-      url: unit_test.html
+      title: Setup
+      url: setup.html
+    - output: web,pdf
+      title: 'Inference '
+      url: Inference.html
+    - output: web,pdf
+      title: Cleanup
+      url: cleanup.html
+    - output: web,pdf
+      title: What_if_tool
+      url: what_if_tool.html
+    - output: web,pdf
+      title: Lambdas
+      url: lambda_function.html
     output: web
     title: heidelberg_nbdev
   output: web

@@ -1,7 +1,11 @@
 {
   "heidelberg_nbdev": {
     "Overview": "/",
-    "module name here": "core.html",
-    "Title": "unit_test.html"
+    "Data Preparation": "data_prepare.html",
+    "Setup": "setup.html",
+    "Inference ": "Inference.html",
+    "Cleanup": "cleanup.html",
+    "What_if_tool": "what_if_tool.html",
+    "Lambdas": "lambda_function.html"
   }
 }
